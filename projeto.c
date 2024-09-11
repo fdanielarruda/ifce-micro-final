@@ -4,6 +4,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <SPIFFS.h>
 
 // Defina o SSID e senha do WiFi
 const char *ssid = "SEU_SSID";
@@ -39,10 +40,19 @@ void setup()
     }
     Serial.println("WiFi conectado!");
 
+    // Inicializa o SPIFFS
+    if (!SPIFFS.begin(true))
+    {
+        Serial.println("Erro ao montar o sistema de arquivos SPIFFS");
+        return;
+    }
+
     SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
     Serial.begin(115200);
     Wire.begin();
-    mfrc522.PCD_Init(); // inicia o modulo RFID
+
+    // inicia o modulo RFID
+    mfrc522.PCD_Init();
 
     Serial.println("RFID + ESP32");
     Serial.println("Aguardando tag RFID para verificar o id da mesma.");
@@ -89,7 +99,7 @@ void loop()
     Serial.println();
     conteudo.toUpperCase(); // deixa as letras da string todas maiusculas
 
-    if (verificaAcesso(conteudo))
+    if (checkAccess(conteudo))
     {
         // Código para liberar o acesso
         digitalWrite(GREEN_LED, HIGH); // ligamos o led verde
@@ -137,8 +147,16 @@ void loop()
 }
 
 // Função para verificar o acesso através da API
-bool verificaAcesso(String idTag)
+bool checkAccess(String idTag)
 {
+    Serial.println("Acessando a API");
+
+    // Verifica o arquivo local primeiro
+    if (checkLocalFile(idTag))
+    {
+        return true;
+    }
+
     if (WiFi.status() == WL_CONNECTED)
     {
         HTTPClient http;
@@ -151,18 +169,19 @@ bool verificaAcesso(String idTag)
             Serial.println(httpResponseCode);
             Serial.println(payload);
 
-            // Procure pelo ID da tag no JSON de retorno
+            saveLocalCredentials(payload);
+
             if (payload.indexOf(idTag) > 0)
             {
                 Serial.println("Acesso permitido");
                 http.end();
-                return true; // Acesso permitido
+                return true;
             }
             else
             {
                 Serial.println("Acesso negado");
                 http.end();
-                return false; // Acesso negado
+                return false;
             }
         }
         else
@@ -176,4 +195,46 @@ bool verificaAcesso(String idTag)
         Serial.println("Erro de conexão WiFi");
         return false;
     }
+}
+
+bool checkLocalFile(String idTag)
+{
+    Serial.println("Acessando arquivos locais");
+
+    File arquivo = SPIFFS.open("/credenciais.txt", "r");
+    if (!arquivo)
+    {
+        Serial.println("Não foi possível abrir o arquivo");
+        return false;
+    }
+
+    while (arquivo.available())
+    {
+        String linha = arquivo.readStringUntil('\n');
+        if (linha.indexOf(idTag) >= 0)
+        {
+            Serial.println("Acesso permitido - credencial local");
+            arquivo.close();
+            return true;
+        }
+    }
+
+    arquivo.close();
+    return false;
+}
+
+void saveLocalCredentials(String dados)
+{
+    Serial.println("Salvando as credenciais locais");
+
+    File arquivo = SPIFFS.open("/credenciais.txt", "w");
+    if (!arquivo)
+    {
+        Serial.println("Não foi possível abrir o arquivo para escrita");
+        return;
+    }
+
+    arquivo.println(dados);
+    arquivo.close();
+    Serial.println("Credenciais salvas localmente");
 }
