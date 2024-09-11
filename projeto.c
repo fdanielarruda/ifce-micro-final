@@ -2,9 +2,15 @@
 #include <MFRC522.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <HTTPClient.h>
+#include <WiFi.h>
 
-// Definiremos o id que será liberado o acesso
-#define ID "F2 E5 45 54"
+// Defina o SSID e senha do WiFi
+const char *ssid = "SEU_SSID";
+const char *password = "SUA_SENHA";
+
+// Defina a URL da API
+#define API_URL "https://eb17-138-204-187-144.ngrok-free.app/api/credentials"
 
 // Define the pins for the SPI interface
 #define SS_PIN 5
@@ -24,6 +30,15 @@ LiquidCrystal_I2C lcd(0x27, 16, 2); // define informacoes do lcd como o endereç
 
 void setup()
 {
+    // Inicializa a conexão WiFi
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(1000);
+        Serial.println("Conectando ao WiFi...");
+    }
+    Serial.println("WiFi conectado!");
+
     SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
     Serial.begin(115200);
     Wire.begin();
@@ -65,7 +80,6 @@ void loop()
     for (byte i = 0; i < mfrc522.uid.size; i++)
     {
         // ambos comandos abaixo vão concatenar as informacoes do cartao...
-        // porem os 2 primeiros irao mostrar na serial e os 2 ultimos guardarao os valores na string de conteudo para fazer as verificacoes
         Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
         Serial.print(mfrc522.uid.uidByte[i], HEX);
         conteudo.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
@@ -75,16 +89,16 @@ void loop()
     Serial.println();
     conteudo.toUpperCase(); // deixa as letras da string todas maiusculas
 
-    if (conteudo.substring(1) == ID)
-    { // verifica se o ID do cartao lido tem o mesmo ID do cartao que queremos liberar o acesso
-
+    if (verificaAcesso(conteudo))
+    {
+        // Código para liberar o acesso
         digitalWrite(GREEN_LED, HIGH); // ligamos o led verde
         lcd.clear();                   // limpamos oque havia sido escrito no lcd
         lcd.print("Acesso Liberado");  // informamos pelo lcd que a tranca foi aberta
 
         digitalWrite(BRAID, HIGH); // abrimos a tranca por 5 segundos
 
-        // vai informando ao usuario quantos segundos faltao para a tranca ser fechada
+        // vai informando ao usuario quantos segundos faltam para a tranca ser fechada
         for (byte s = 5; s > 0; s--)
         {
             lcd.setCursor(8, 1);
@@ -97,8 +111,8 @@ void loop()
         lcd.clear();                  // limpa os caracteres q estao escritos no lcd
     }
     else
-    { // caso o cartao lido nao foi registrado
-
+    {
+        // Código para negar o acesso
         digitalWrite(RED_LED, HIGH); // vamos ligar o led vermelho
 
         for (byte s = 5; s > 0; s--)
@@ -119,5 +133,47 @@ void loop()
 
         digitalWrite(RED_LED, LOW); // desliga o led vermelho
         lcd.clear();                // limpa as informacoes do lcd
+    }
+}
+
+// Função para verificar o acesso através da API
+bool verificaAcesso(String idTag)
+{
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        HTTPClient http;
+        http.begin(API_URL);
+        int httpResponseCode = http.GET();
+
+        if (httpResponseCode > 0)
+        {
+            String payload = http.getString();
+            Serial.println(httpResponseCode);
+            Serial.println(payload);
+
+            // Procure pelo ID da tag no JSON de retorno
+            if (payload.indexOf(idTag) > 0)
+            {
+                Serial.println("Acesso permitido");
+                http.end();
+                return true; // Acesso permitido
+            }
+            else
+            {
+                Serial.println("Acesso negado");
+                http.end();
+                return false; // Acesso negado
+            }
+        }
+        else
+        {
+            Serial.println("Erro ao acessar a API");
+            return false;
+        }
+    }
+    else
+    {
+        Serial.println("Erro de conexão WiFi");
+        return false;
     }
 }
