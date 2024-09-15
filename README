@@ -4,7 +4,8 @@
 
 Este projeto implementa um sistema de controle de acesso utilizando o ESP32, um leitor de RFID, e uma API externa para validação de credenciais. O sistema também conta com armazenamento local de credenciais, utilizando o sistema de arquivos SPIFFS, para otimizar futuras consultas em caso de perda de conexão com a internet.
 
-O sistema permite:
+### Funcionalidades:
+
 - Verificar tags RFID usando uma API externa;
 - Armazenar e verificar credenciais localmente;
 - Controlar LEDs e um buzzer para indicar se o acesso foi liberado ou negado;
@@ -29,7 +30,7 @@ O sistema permite:
 2. **Validação via API**: Se houver conexão WiFi disponível, o sistema tenta validar a tag através de uma API externa.
 3. **Armazenamento Local**: As credenciais retornadas da API são salvas localmente para futuras consultas. Caso a conexão com a internet seja interrompida, o sistema verifica as credenciais armazenadas no arquivo SPIFFS.
 4. **Indicação de Acesso**:
-   - Se o acesso for permitido, o sistema acende o LED verde, destranca o mecanismo de tranca, e emite um sinal sonoro.
+   - Se o acesso for permitido, o sistema acende o LED verde, destranca o mecanismo de tranca e emite um sinal sonoro.
    - Se o acesso for negado, o LED vermelho é aceso e o buzzer é ativado.
 5. **Interface Web**: O sistema hospeda uma página web acessível pelo IP do ESP32, onde é possível verificar o ID da última tag lida e o status do acesso em tempo real.
 
@@ -51,6 +52,7 @@ O sistema permite:
 ## Conexões
 
 ### RFID (MFRC522)
+
 - **SCK**: Pino 18
 - **MOSI**: Pino 23
 - **MISO**: Pino 19
@@ -58,12 +60,14 @@ O sistema permite:
 - **RST**: Pino 4
 
 ### LEDs e Buzzer
+
 - **LED Verde**: Pino 26
 - **LED Vermelho**: Pino 25
 - **Buzzer**: Pino 15
 - **Tranca**: Pino 13
 
 ### LCD I2C
+
 - Conectado aos pinos I2C (SDA, SCL) do ESP32.
 
 ## Instalação e Uso
