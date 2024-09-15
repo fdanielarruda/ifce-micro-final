@@ -11,7 +11,7 @@ const char *ssid = "SEU_SSID";
 const char *password = "SUA_SENHA";
 
 // Defina a URL da API
-#define API_URL "https://eb17-138-204-187-144.ngrok-free.app/api/credentials"
+#define API_URL "https://868f-138-204-187-144.ngrok-free.app/api/credentials"
 
 // Define the pins for the SPI interface
 #define SS_PIN 5
@@ -28,6 +28,10 @@ const char *password = "SUA_SENHA";
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // define os pinos de controle do modulo de leitura de cartoes RFID
 LiquidCrystal_I2C lcd(0x27, 16, 2); // define informacoes do lcd como o endereço I2C (0x27) e tamanho do mesmo
+
+bool checkAccess(String idTag);
+bool checkLocalFile(String idTag);
+void saveLocalCredentials(String dados);
 
 void setup()
 {
@@ -56,6 +60,10 @@ void setup()
 
     Serial.println("RFID + ESP32");
     Serial.println("Aguardando tag RFID para verificar o id da mesma.");
+
+    // linhas para ligar lcd
+    lcd.init();
+    lcd.backlight();
 
     lcd.home();                // bota o cursor do lcd na posicao inicial
     lcd.print("Aguardando");   // imprime na primeira linha a string "Aguardando"
@@ -108,6 +116,12 @@ void loop()
 
         digitalWrite(BRAID, HIGH); // abrimos a tranca por 5 segundos
 
+        // faz o BUZZER emitir um bip por segundo
+        ledcWrite(CANAL_PWM, 500);
+        delay(800);
+        ledcWrite(CANAL_PWM, 0);
+        delay(200);
+
         // vai informando ao usuario quantos segundos faltam para a tranca ser fechada
         for (byte s = 5; s > 0; s--)
         {
@@ -122,10 +136,16 @@ void loop()
     }
     else
     {
+        // faz o BUZZER emitir um bip por segundo
+        ledcWrite(CANAL_PWM, 500);
+        delay(800);
+        ledcWrite(CANAL_PWM, 0);
+        delay(200);
+
         // Código para negar o acesso
         digitalWrite(RED_LED, HIGH); // vamos ligar o led vermelho
 
-        for (byte s = 5; s > 0; s--)
+        for (byte s = 1; s > 0; s--)
         { // uma contagem / espera para poder fazer uma nova leitura
 
             lcd.clear();                // limpa as informacoes que estao na tela
@@ -133,18 +153,12 @@ void loop()
             lcd.print("Acesso negado"); // infoma ao usuario que ele nao tem acesso
             lcd.setCursor(8, 1);        // coloca o cursor na coluna 8 da linha 2
             lcd.print(s);               // informa quantos segundos faltam para pode fazer uma nova leitura
-
-            // faz o BUZZER emitir um bip por segundo
-            ledcWrite(CANAL_PWM, 500);
-            delay(800);
-            ledcWrite(CANAL_PWM, 0);
-            delay(200);
         }
 
         digitalWrite(RED_LED, LOW); // desliga o led vermelho
         lcd.clear();                // limpa as informacoes do lcd
     }
-}
+}   
 
 // Função para verificar o acesso através da API
 bool checkAccess(String idTag)
